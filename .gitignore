@@ -1,0 +1,35 @@
+# Node.js (Next.js) dependencies and build outputs
+license-plate-ui/node_modules/
+license-plate-ui/.next/
+license-plate-ui/out/
+license-plate-ui/.vercel/
+license-plate-ui/npm-debug.log*
+license-plate-ui/yarn-debug.log*
+license-plate-ui/yarn-error.log*
+license-plate-ui/.env.local
+license-plate-ui/.env.development.local
+license-plate-ui/.env.production.local
+
+# Python (Flask) dependencies and environment files
+*.pyc
+__pycache__/
+instance/
+*.sqlite3
+.env
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor-specific files
+.vscode/
+.idea/
+
+# Miscellaneous
+*.log
+*.pem
