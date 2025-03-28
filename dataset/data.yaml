@@ -1,5 +1,4 @@
-train: /content/drive/MyDrive/dataset/images/train
-val: /content/drive/MyDrive/dataset/images/val
-
-nc: 1  # Number of classes (only "license_plate")
+train: /content/LicenseDetectorModel/dataset/images/train
+val: /content/LicenseDetectorModel/dataset/images/val
+nc: 1
 names: ["license_plate"]
