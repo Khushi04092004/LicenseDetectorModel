@@ -7,14 +7,19 @@ import { motion } from "framer-motion";
 
 export default function Home() {
   const [image, setImage] = useState(null);
-  const [result, setResult] = useState(null);
+  const [detectedPlate, setDetectedPlate] = useState(null);
+  const [plateNumber, setPlateNumber] = useState(null);
+  const [validationResult, setValidationResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
       setImage(URL.createObjectURL(file));
-      setResult(null);
+      setDetectedPlate(null);
+      setPlateNumber(null);
+      setValidationResult(null);
     }
   };
 
@@ -23,30 +28,44 @@ export default function Home() {
   };
 
   const handleUpload = async () => {
-    if (!image) return;
-
+    if (!fileInputRef.current.files[0]) return;
+  
+    setIsLoading(true);
     const formData = new FormData();
-    formData.append('image', fileInputRef.current.files[0]);
-
+    formData.append('file', fileInputRef.current.files[0]);
+  
     try {
-      const response = await fetch('http://localhost:5000/detect', {
+      const response = await fetch('http://localhost:5000/upload', {
         method: 'POST',
         body: formData,
       });
-
+  
       if (!response.ok) {
-        throw new Error('Failed to detect plate');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to detect plate');
       }
-
+  
       const data = await response.json();
-      setResult(data.detected_plate || 'No plate detected');
+      if (data.detected_plate) {
+        const plateDataUrl = `data:image/png;base64,${data.detected_plate}`;
+        setDetectedPlate(plateDataUrl);
+        setPlateNumber(data.plate_number);
+        setValidationResult(data.validation_result);
+      } else {
+        setDetectedPlate(null);
+        setPlateNumber(null);
+        setValidationResult(null);
+      }
     } catch (error) {
       console.error('Error:', error);
-      setResult('Error detecting plate');
+      setDetectedPlate(null);
+      setPlateNumber(null);
+      setValidationResult(null);
+    } finally {
+      setIsLoading(false);
     }
   };
-
-
+  
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-purple-700 via-blue-600 to-black p-6 text-white">
       <motion.div animate={{ scale: 1.1 }}>
@@ -79,12 +98,46 @@ export default function Home() {
           </button>
           <button 
             onClick={handleUpload} 
-            disabled={!image} 
-            className={`w-full px-4 py-2 rounded-lg text-white ${image ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-400 cursor-not-allowed"}`}
+            disabled={!image || isLoading} 
+            className={`w-full px-4 py-2 rounded-lg text-white ${
+              image && !isLoading 
+                ? "bg-blue-500 hover:bg-blue-600" 
+                : "bg-gray-400 cursor-not-allowed"
+            }`}
           >
-            Detect Plate
+            {isLoading ? "Processing..." : "Detect Plate"}
           </button>
-          {result && <p className="text-green-400 font-semibold mt-4">{result}</p>}
+          
+          {detectedPlate && (
+            <div className="mt-4 w-full">
+              <h2 className="text-xl mb-2">Detected Plate:</h2>
+              <div className="bg-gray-800 p-4 rounded-lg">
+                <img 
+                  src={detectedPlate} 
+                  alt="Detected License Plate" 
+                  className="max-w-full rounded-lg mb-4" 
+                />
+                
+                {plateNumber && (
+                  <div className="mt-4 text-center">
+                    <h3 className="text-lg mb-2">License Number:</h3>
+                    <div className="bg-gray-700 p-3 rounded-lg font-mono text-2xl tracking-wider">
+                      {plateNumber}
+                    </div>
+                    {validationResult && (
+                      <div className={`mt-2 text-sm ${
+                        validationResult.includes("✅") 
+                          ? "text-green-400" 
+                          : "text-red-400"
+                      }`}>
+                        {validationResult}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
