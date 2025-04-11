@@ -8,7 +8,7 @@ import re
 import matplotlib.pyplot as plt
 from fuzzywuzzy import process
 
-model = YOLO("runs/detect/train11/weights/best.pt")
+model = YOLO("new_runs/detect/train2/weights/best.pt")
 
 def detect_license_plate(image_path):
     results = model.predict(source=image_path, conf=0.5)

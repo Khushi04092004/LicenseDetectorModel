@@ -9,7 +9,7 @@ export default function Home() {
   const [image, setImage] = useState(null);
   const [detectedPlate, setDetectedPlate] = useState(null);
   const [plateNumber, setPlateNumber] = useState(null);
-  const [validationResult, setValidationResult] = useState(null);
+  const [message, setMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -19,7 +19,7 @@ export default function Home() {
       setImage(URL.createObjectURL(file));
       setDetectedPlate(null);
       setPlateNumber(null);
-      setValidationResult(null);
+      setMessage(null);
     }
   };
 
@@ -31,6 +31,7 @@ export default function Home() {
     if (!fileInputRef.current.files[0]) return;
   
     setIsLoading(true);
+    setMessage(null);
     const formData = new FormData();
     formData.append('file', fileInputRef.current.files[0]);
   
@@ -40,27 +41,44 @@ export default function Home() {
         body: formData,
       });
   
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to detect plate');
-      }
-  
       const data = await response.json();
-      if (data.detected_plate) {
-        const plateDataUrl = `data:image/png;base64,${data.detected_plate}`;
-        setDetectedPlate(plateDataUrl);
-        setPlateNumber(data.plate_number);
-        setValidationResult(data.validation_result);
+      
+      if (response.ok) {
+        // Check if we have a message about no plate detected
+        if (data.message && data.message.includes("No license plate detected")) {
+          setMessage("No license plate detected in the image");
+          setDetectedPlate(null);
+          setPlateNumber(null);
+        } 
+        // Check if we have a plate number indicating no plate
+        else if (data.plate_number === "No plate detected" || data.plate_number === "No license plate detected") {
+          setMessage("No license plate detected in the image");
+          setDetectedPlate(null);
+          setPlateNumber(null);
+        }
+        // Normal case - plate detected
+        else if (data.detected_plate) {
+          const plateDataUrl = `data:image/png;base64,${data.detected_plate}`;
+          setDetectedPlate(plateDataUrl);
+          setPlateNumber(data.plate_number);
+          setMessage(null);
+        } 
+        // Error case
+        else {
+          setMessage(data.message || "Failed to process the image");
+          setDetectedPlate(null);
+          setPlateNumber(null);
+        }
       } else {
+        setMessage(data.error || "Failed to process the image");
         setDetectedPlate(null);
         setPlateNumber(null);
-        setValidationResult(null);
       }
     } catch (error) {
       console.error('Error:', error);
+      setMessage("An error occurred while processing the image");
       setDetectedPlate(null);
       setPlateNumber(null);
-      setValidationResult(null);
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +126,15 @@ export default function Home() {
             {isLoading ? "Processing..." : "Detect Plate"}
           </button>
           
+          {/* Display message if plate not detected */}
+          {message && (
+            <div className="mt-4 w-full">
+              <div className="bg-gray-800 p-4 rounded-lg text-center text-yellow-400">
+                {message}
+              </div>
+            </div>
+          )}
+          
           {detectedPlate && (
             <div className="mt-4 w-full">
               <h2 className="text-xl mb-2">Detected Plate:</h2>
@@ -124,15 +151,6 @@ export default function Home() {
                     <div className="bg-gray-700 p-3 rounded-lg font-mono text-2xl tracking-wider">
                       {plateNumber}
                     </div>
-                    {validationResult && (
-                      <div className={`mt-2 text-sm ${
-                        validationResult.includes("✅") 
-                          ? "text-green-400" 
-                          : "text-red-400"
-                      }`}>
-                        {validationResult}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

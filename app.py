@@ -1,8 +1,9 @@
+# app.py changes
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 from werkzeug.utils import secure_filename
-from LPD import main as process_license_plate
+from LPD_AccuracyImprove import main as process_license_plate
 import io
 import base64
 import cv2
@@ -39,22 +40,36 @@ def upload_file():
         file.save(filepath)
         
         try:
-           
-            plate, detected_image, plate_number, validation_result = process_license_plate(filepath)
-            if plate is not None:
-                plate_base64 = image_to_base64(plate)
+            processed_plate, detected_image, plate_number, _ = process_license_plate(filepath)
+            
+            # Handle case when no plate is detected
+            if processed_plate is None or plate_number == "No plate detected":
+                # Still return the original image if available
+                if detected_image is not None:
+                    detected_image_base64 = image_to_base64(detected_image)
+                    return jsonify({
+                        'original_image': detected_image_base64,
+                        'plate_number': 'No license plate detected',
+                        'message': 'No license plate detected in the image'
+                    }), 200
+                else:
+                    return jsonify({'message': 'No license plate detected in the image'}), 200
+            else:
+                # Normal flow when plate is detected
+                plate_base64 = image_to_base64(processed_plate)
                 detected_image_base64 = image_to_base64(detected_image)
+                
+                print(f"Plate number detected: {plate_number}")
                 
                 return jsonify({
                     'detected_plate': plate_base64,
                     'original_image': detected_image_base64,
-                    'plate_number': plate_number,
-                    'validation_result': validation_result
+                    'plate_number': plate_number
                 })
-            else:
-                return jsonify({'error': 'No license plate detected'}), 404
+                
         except Exception as e:
-            return jsonify({'error': str(e)}), 500
+            print(f"Error processing license plate: {str(e)}")
+            return jsonify({'message': 'Error processing image', 'error': str(e)}), 200
     else:
         return jsonify({'error': 'Invalid file type'}), 400
 
