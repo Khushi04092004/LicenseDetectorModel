@@ -148,7 +148,7 @@ export default function Home() {
                 {plateNumber && (
                   <div className="mt-4 text-center">
                     <h3 className="text-lg mb-2">License Number:</h3>
-                    <div className="bg-gray-700 p-3 rounded-lg font-mono text-2xl tracking-wider">
+                    <div className="bg-gray-600 p-3 rounded-lg font-mono text-2xl tracking-wider">
                       {plateNumber}
                     </div>
                   </div>
