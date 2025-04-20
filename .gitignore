@@ -21,7 +21,7 @@ ENV/
 env/
 env.bak/
 venv.bak/
-
+paddleenv/
 # OS-specific files
 .DS_Store
 Thumbs.db
@@ -29,7 +29,7 @@ Thumbs.db
 # Editor-specific files
 .vscode/
 .idea/
-
+uploads/
 # Miscellaneous
 *.log
 *.pem
