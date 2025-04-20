@@ -1,4 +1,3 @@
-# app.py changes
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask import send_file, send_from_directory, Response
@@ -45,10 +44,7 @@ def upload_file():
         
         try:
             processed_plate, detected_image, plate_number, _ = process_license_plate(filepath)
-            
-            # Handle case when no plate is detected
             if processed_plate is None or plate_number == "No plate detected":
-                # Still return the original image if available
                 if detected_image is not None:
                     detected_image_base64 = image_to_base64(detected_image)
                     return jsonify({
@@ -59,7 +55,6 @@ def upload_file():
                 else:
                     return jsonify({'message': 'No license plate detected in the image'}), 200
             else:
-                # Normal flow when plate is detected
                 plate_base64 = image_to_base64(processed_plate)
                 detected_image_base64 = image_to_base64(detected_image)
                 
@@ -116,8 +111,19 @@ def upload_video():
 
 @app.route('/uploads/<path:filename>')
 def serve_uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
+    mimetype = None
+    if filename.endswith('.mp4'):
+        mimetype = 'video/mp4'
+    elif filename.endswith('.avi'):
+        mimetype = 'video/x-msvideo'
+    elif filename.endswith('.mov'):
+        mimetype = 'video/quicktime'
+    
+    return send_from_directory(
+        app.config['UPLOAD_FOLDER'], 
+        filename, 
+        mimetype=mimetype
+    )
 
 
 if __name__ == '__main__':

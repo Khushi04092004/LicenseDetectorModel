@@ -66,7 +66,7 @@ def process_license_plate(image):
 
 def process_video(input_path, output_path):
     cap = cv2.VideoCapture(input_path)
-
+    output_path = output_path.rsplit('.', 1)[0] + '.mp4'    
     if not cap.isOpened():
         print(f"[ERROR] Could not open video file: {input_path}")
         return False, []
@@ -75,7 +75,7 @@ def process_video(input_path, output_path):
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'H264')
     out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
     detected_plates = set()
@@ -96,7 +96,6 @@ def process_video(input_path, output_path):
             annotated_frame = frame
             ocr_text = None
 
-        # Resize to ensure consistency
         if (annotated_frame.shape[1] != frame_width) or (annotated_frame.shape[0] != frame_height):
             annotated_frame = cv2.resize(annotated_frame, (frame_width, frame_height))
 
@@ -118,42 +117,4 @@ def process_video(input_path, output_path):
         return False, []
 
     print(f"[SUCCESS] Video processing complete: {output_path}")
-    return True, list(detected_plates)
-
-    cap = cv2.VideoCapture(input_path)
-
-    if not cap.isOpened():
-        print(f"[ERROR] Could not open video file: {input_path}")
-        return False, []
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
-
-    detected_plates = set()
-    frame_count = 0
-
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        _, annotated_frame, ocr_text = process_license_plate(frame)
-
-        if ocr_text and ocr_text.strip().lower() != "no plate detected":
-            detected_plates.add(ocr_text.strip())
-
-        if frame_count % 30 == 0:
-            print(f"[INFO] Processed frame {frame_count} - OCR: {ocr_text}")
-
-        out.write(annotated_frame)
-        frame_count += 1
-
-    cap.release()
-    out.release()
-    print(f"[SUCCESS] Video processing complete: {output_path}")
-
     return True, list(detected_plates)

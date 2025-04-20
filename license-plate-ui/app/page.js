@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { UploadCloud } from "lucide-react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 
-export default function Home() {
+export default function Page() {
   const [image, setImage] = useState(null);
   const [detectedPlate, setDetectedPlate] = useState(null);
   const [plateNumber, setPlateNumber] = useState(null);
@@ -13,13 +13,13 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
 
+  const [uploadedVideoBlob, setUploadedVideoBlob] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [detectedPlatesFromVideo, setDetectedPlatesFromVideo] = useState([]);
   const [videoLoading, setVideoLoading] = useState(false);
+  const [videoError, setVideoError] = useState(null);
   const videoInputRef = useRef(null);
-  const [uploadedVideoBlob, setUploadedVideoBlob] = useState(null); // to show original video
 
-  // IMAGE HANDLING
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -76,19 +76,34 @@ export default function Home() {
     }
   };
 
-  // VIDEO HANDLING
   const handleChooseVideo = () => videoInputRef.current.click();
 
   const handleVideoFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
       const localBlobUrl = URL.createObjectURL(file);
-      setUploadedVideoBlob(localBlobUrl); // Show original video
-      setVideoUrl(null); // Clear old processed video
-      setDetectedPlatesFromVideo([]); // Clear results
-      handleVideoUpload(file); // Start processing
+      setUploadedVideoBlob(localBlobUrl);
+      setVideoUrl(null);
+      setDetectedPlatesFromVideo([]);
+      setVideoError(null);
+      handleVideoUpload(file);
     }
   };
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current && videoUrl) {
+      const video = videoRef.current;
+      video.addEventListener("error", (e) => {
+        console.error("Video error:", e);
+        setVideoError(
+          "Error loading video. You can try downloading it instead."
+        );
+      });
+
+      video.load();
+    }
+  }, [videoUrl]);
 
   const handleVideoUpload = async (file) => {
     const formData = new FormData();
@@ -104,12 +119,14 @@ export default function Home() {
       const data = await res.json();
 
       if (res.ok && data.video_url) {
-        setVideoUrl(data.video_url); // processed video
+        setVideoUrl(data.video_url);
         setDetectedPlatesFromVideo(data.detected_plates || []);
       } else {
+        setVideoError(data.error || "Failed to process video");
         console.error("Video upload failed:", data.message);
       }
     } catch (error) {
+      setVideoError("Network error while uploading video");
       console.error("Error uploading video:", error);
     } finally {
       setVideoLoading(false);
@@ -210,43 +227,56 @@ export default function Home() {
             Video Detection
           </h2>
           <div className="flex flex-col items-center gap-4">
-            {videoUrl ? (
-              <>
-                <h3 className="text-lg font-semibold">Uploaded Video:</h3>
-                <video
-                  controls
-                  src={uploadedVideoBlob}
-                  className="w-full rounded-lg shadow-lg"
-                />
-                {videoUrl && (
-                  <>
-                    <h3 className="text-lg font-semibold">Processed Video:</h3>
-                    <video
-                      controls
-                      width="500"
-                      className="rounded-lg shadow-lg"
-                    >
-                      <source src={videoUrl} type="video/mp4" />
-                      Your browser does not support the video tag.
-                    </video>
-                  </>
-                )}
-              </>
-            ) : uploadedVideoBlob ? (
-              <>
-                <h3 className="text-lg font-semibold">Uploaded Video:</h3>
-                <video
-                  controls
-                  src={uploadedVideoBlob}
-                  className="w-full rounded-lg shadow-lg"
-                />
-              </>
-            ) : (
-              <div className="border-2 border-dashed border-gray-500 p-10 rounded-lg text-center">
-                <UploadCloud size={50} className="text-gray-400 mb-2" />
+            {/* Video Content Area */}
+            {!uploadedVideoBlob ? (
+              <div className="border-2 border-dashed border-gray-500 p-10 rounded-lg text-center w-full">
+                <UploadCloud size={50} className="mx-auto text-gray-400 mb-2" />
                 <p className="text-gray-400">
                   Upload a video with license plates
                 </p>
+              </div>
+            ) : (
+              <div className="w-full space-y-6">
+                {/* Original Video */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">
+                    Original Video:
+                  </h3>
+                  <video
+                    controls
+                    src={uploadedVideoBlob}
+                    className="w-full rounded-lg shadow-lg"
+                  />
+                </div>
+
+                {/* Processed Video */}
+                {videoUrl && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">
+                      Processed Video:
+                    </h3>
+                    <video
+                      ref={videoRef}
+                      controls
+                      className="w-full rounded-lg shadow-lg"
+                      key={videoUrl}
+                    >
+                      <source
+                        src={videoUrl + "?t=" + new Date().getTime()}
+                        type="video/mp4"
+                      />
+                      Your browser does not support the video tag.
+                    </video>
+                    {/* Fallback download link */}
+                    <a
+                      href={videoUrl}
+                      download
+                      className="text-blue-400 text-sm hover:underline mt-1 block"
+                    >
+                      Download processed video
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 
@@ -257,35 +287,39 @@ export default function Home() {
               onChange={handleVideoFileChange}
               className="hidden"
             />
+
             <button
               onClick={handleChooseVideo}
-              className="px-4 py-2 border rounded-lg bg-purple-600 hover:bg-purple-700"
+              className="px-4 py-2 border rounded-lg bg-purple-600 hover:bg-purple-700 transition"
             >
               Choose Video
             </button>
-            <button
-              onClick={() =>
-                videoInputRef.current?.files?.[0] &&
-                handleVideoUpload(videoInputRef.current.files[0])
-              }
-              disabled={videoLoading}
-              className={`w-full px-4 py-2 rounded-lg text-white ${
-                !videoLoading
-                  ? "bg-blue-500 hover:bg-blue-600"
-                  : "bg-gray-400 cursor-not-allowed"
-              }`}
-            >
-              {videoLoading ? "Processing..." : "Detect Plates"}
-            </button>
+
+            {videoError && (
+              <div className="w-full bg-red-900/50 border border-red-500 p-3 rounded-lg text-red-200">
+                {videoError}
+              </div>
+            )}
+
+            {videoLoading && (
+              <div className="w-full bg-blue-900/30 p-4 rounded-lg text-center">
+                <div className="animate-pulse">Processing video...</div>
+                <div className="text-sm mt-1 text-blue-300">
+                  This may take a few moments depending on video length
+                </div>
+              </div>
+            )}
 
             {detectedPlatesFromVideo.length > 0 && (
-              <div className="w-full bg-gray-800 p-4 rounded-lg mt-4">
-                <h3 className="text-lg mb-2">Detected Plates:</h3>
-                <ul className="space-y-1">
+              <div className="w-full bg-gray-800 p-4 rounded-lg mt-2">
+                <h3 className="text-lg mb-3 font-semibold">
+                  Detected License Plates:
+                </h3>
+                <ul className="space-y-2">
                   {detectedPlatesFromVideo.map((plate, index) => (
                     <li
                       key={index}
-                      className="bg-gray-600 p-2 rounded-lg text-center font-mono text-lg"
+                      className="bg-gray-700 p-3 rounded-lg text-center font-mono text-lg"
                     >
                       {plate}
                     </li>
