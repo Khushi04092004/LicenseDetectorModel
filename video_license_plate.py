@@ -1,4 +1,3 @@
-# video_license_plate.py
 import cv2
 from paddleocr import PaddleOCR
 from ultralytics import YOLO
@@ -16,13 +15,12 @@ def detect_license_plate(image):
         if len(result.boxes) == 0:
             continue
 
-        for box in result.boxes:
+        for i, box in enumerate(result.boxes):
             confidence = float(box.conf[0])
             if confidence > best_confidence:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 if x2 <= x1 or y2 <= y1:
                     continue
-
                 cropped_plate = image[y1:y2, x1:x2]
                 best_plate = cropped_plate
                 best_confidence = confidence
@@ -38,14 +36,12 @@ def detect_license_plate(image):
 def extract_text_with_paddleocr(image):
     if len(image.shape) == 2 or image.shape[2] == 1:
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-
     image = cv2.resize(image, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
     image = cv2.convertScaleAbs(image, alpha=1.5, beta=0)
-
     result = ocr.ocr(image, cls=True)
+
     if not result or not result[0]:
         print("[DEBUG] OCR returned no results")
-        cv2.imwrite("debug_failed_plate.png", image)
         return []
 
     texts = [line[1][0] for line in result[0]]
@@ -62,15 +58,102 @@ def process_license_plate(image):
         return None, detected_image, None
 
     formatted_text = " ".join(ocr_texts)
-    cv2.putText(
-        detected_image,
-        formatted_text,
-        (10, 30),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 0),
-        2,
-        cv2.LINE_AA,
-    )
+    cv2.putText(detected_image, formatted_text, (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
     print(f"[RESULT] Plate: {formatted_text}")
     return plate, detected_image, formatted_text
+
+
+def process_video(input_path, output_path):
+    cap = cv2.VideoCapture(input_path)
+
+    if not cap.isOpened():
+        print(f"[ERROR] Could not open video file: {input_path}")
+        return False, []
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
+    detected_plates = set()
+    frame_count = 0
+    valid_frames_written = 0
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        try:
+            _, annotated_frame, ocr_text = process_license_plate(frame)
+            if annotated_frame is None:
+                annotated_frame = frame
+        except Exception as e:
+            print(f"[ERROR] Frame {frame_count} failed: {e}")
+            annotated_frame = frame
+            ocr_text = None
+
+        # Resize to ensure consistency
+        if (annotated_frame.shape[1] != frame_width) or (annotated_frame.shape[0] != frame_height):
+            annotated_frame = cv2.resize(annotated_frame, (frame_width, frame_height))
+
+        out.write(annotated_frame)
+        valid_frames_written += 1
+
+        if ocr_text and ocr_text.strip().lower() != "no plate detected":
+            detected_plates.add(ocr_text.strip())
+
+        if frame_count % 30 == 0:
+            print(f"[INFO] Processed frame {frame_count} - OCR: {ocr_text}")
+        frame_count += 1
+
+    cap.release()
+    out.release()
+
+    if valid_frames_written == 0:
+        print("[ERROR] No valid frames were written. Output may be corrupt.")
+        return False, []
+
+    print(f"[SUCCESS] Video processing complete: {output_path}")
+    return True, list(detected_plates)
+
+    cap = cv2.VideoCapture(input_path)
+
+    if not cap.isOpened():
+        print(f"[ERROR] Could not open video file: {input_path}")
+        return False, []
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
+    detected_plates = set()
+    frame_count = 0
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        _, annotated_frame, ocr_text = process_license_plate(frame)
+
+        if ocr_text and ocr_text.strip().lower() != "no plate detected":
+            detected_plates.add(ocr_text.strip())
+
+        if frame_count % 30 == 0:
+            print(f"[INFO] Processed frame {frame_count} - OCR: {ocr_text}")
+
+        out.write(annotated_frame)
+        frame_count += 1
+
+    cap.release()
+    out.release()
+    print(f"[SUCCESS] Video processing complete: {output_path}")
+
+    return True, list(detected_plates)

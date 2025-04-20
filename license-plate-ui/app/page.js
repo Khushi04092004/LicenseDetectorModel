@@ -218,11 +218,19 @@ export default function Home() {
                   src={uploadedVideoBlob}
                   className="w-full rounded-lg shadow-lg"
                 />
-                <h3 className="text-lg font-semibold">Processed Video:</h3>
-                <video controls width="500">
-                  <source src={processedVideoUrl} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
+                {videoUrl && (
+                  <>
+                    <h3 className="text-lg font-semibold">Processed Video:</h3>
+                    <video
+                      controls
+                      width="500"
+                      className="rounded-lg shadow-lg"
+                    >
+                      <source src={videoUrl} type="video/mp4" />
+                      Your browser does not support the video tag.
+                    </video>
+                  </>
+                )}
               </>
             ) : uploadedVideoBlob ? (
               <>
